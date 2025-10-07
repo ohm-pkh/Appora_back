@@ -6,7 +6,13 @@ import { Profiler } from "react";
 import session  from "express-session";
 import helmet from "helmet";
 import * as auth from "./auth.js"
-import { Register, Login, Verify_res, Forgot_Pass } from "./login.js";
+import {
+  Register,
+  Login,
+  Verify_res,
+  Forgot_Pass,
+  Reset_Pass,
+} from "./login.js";
 
 
 dotenv.config();
@@ -74,6 +80,7 @@ app.post("/Sign_in", Register);
 app.post("LogIn", Login);
 app.post("Verify_Res", Verify_res);
 app.post("ForPass", Forgot_Pass);
+app.post("/Reset_pass", Reset_Pass);
 
 
 app.listen(PORT, "0.0.0.0", () => {
