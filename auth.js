@@ -1,6 +1,7 @@
 import passport from "passport";
 import GoogleStrategy from "passport-google-oauth2";
-import { OAuth2Client } from "google-auth-library";
+import {  OAuth2Client } from "google-auth-library";
+import jwt from "jsonwebtoken";
 // const GoogleStrategy = require("passport-google-oauth2").Strategy;
 
 //import pool
@@ -12,6 +13,8 @@ dotenv.config();
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET =process.env.GOOGLE_CLIENT_SECRET;
 const Client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const JWT_SECRET = process.env.JWT_SECRET;
+
 
 
 
@@ -42,22 +45,22 @@ const Insert_query = async (email) => {
   }
 };
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: GOOGLE_CLIENT_ID,
-      clientSecret: GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:3000/google/callback",
-      passReqToCallback: true,
-    },
-    function (request, accessToken, refreshToken, profile, done) {
-      //   User.findOrCreate({ googleId: profile.id }, function (err, user) {
-      //     return done(err, user);
-      //   });
-      return done(null, profile);
-    }
-  )
-);
+// passport.use(
+//   new GoogleStrategy(
+//     {
+//       clientID: GOOGLE_CLIENT_ID,
+//       clientSecret: GOOGLE_CLIENT_SECRET,
+//       callbackURL: "http://localhost:3000/google/callback",
+//       passReqToCallback: true,
+//     },
+//     function (request, accessToken, refreshToken, profile, done) {
+//       //   User.findOrCreate({ googleId: profile.id }, function (err, user) {
+//       //     return done(err, user);
+//       //   });
+//       return done(null, profile);
+//     }
+//   )
+// );
 
 // passport.use(
 //   new GoogleStrategy(
@@ -93,13 +96,13 @@ passport.use(
 //   )
 // );
 
-passport.serializeUser(function (user, done) {
-  done(null, user);
-});
+// passport.serializeUser(function (user, done) {
+//   done(null, user);
+// });
 
-passport.deserializeUser(function (user, done) {
-  done(null, user);
-});
+// passport.deserializeUser(function (user, done) {
+//   done(null, user);
+// });
 
 
 export const Login_with_Google = async(req, res) => {
@@ -120,10 +123,18 @@ export const Login_with_Google = async(req, res) => {
     if(!user){
       user = await Insert_query(email);
     }
+    //Create JWT
+    const user_Token = jwt.sign({
+      sub : sub,
+      name : name,
+      email: email
+    }, JWT_SECRET,
+  {expiresIn: "7d"});
+
     //Respond back to frontend
-    res.json({
+    res.status(200).json({
       Success: true,
-      User: { email, name },
+      token: user_Token,
       message: "Google token verified successfully",
     });
 
