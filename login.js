@@ -2,12 +2,41 @@ import pool from "./db.js"
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken"
+import nodemailer from "nodemailer"
 
 
 
 const app = express();
 const PORT = process.env.PORT || 300;
 const JWT_SECRET = process.env.JWT_SECRET;
+const Appora_pass = process.env.Appora_pass;
+
+//Setup nodemailer for sending email
+let transporter = nodemailer.createTransport({
+  host: "smtp.ethereal.email",
+  secure: true,
+  auth: {
+    user: "Appora.WGAD@gmail.com",
+    pass: Appora_pass
+  }
+});
+
+//Function to send E-mail
+const Send_Email = async(text, email) => {
+  let sended = 0;
+  try {
+    const info = await transporter.sendMail({
+      from: `"Appora" <Appora.WGAD@gmail.com>`,
+      to: email,
+      subject: "Password Recovery",
+      text: text,
+    });
+    sended = 1;
+  } catch (error) {
+    console.log(error.message);
+  }
+  return sended;
+}
 
 //Create random 6 digit validation code
 function generateRandom6DigitNumber() {
@@ -130,8 +159,30 @@ export const Verify_res = async(req, res) => {
 export const Forgot_Pass = async(req, res) => {
   try {
     const {email} = req.body;
+    const text = "Password Recovery"
+    const Sender =  await Send_Email(text, email);
+    if(Sender){
+      res.status(200).send({message : "Email Sended"});
+    }else{
+      res.status(400).send({ message: "Failed to send email" });
+    }
+  
   } catch (error) {
     console.log(error.message);
     res.status(500).send({ error: "Internal server error" });
+  }
+}
+
+export const Reset_Pass = async(req, res) =>{
+  try {
+    const {password, email} = req.body; 
+    const Repass = await pool.query(
+      "UPDATE account SET password = $1 WHERE email = $2 RETURNING *;",
+      [password, email]
+    );
+    res.status(200).json(Repass.rows[0]);
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).send({message: "Internal server error"})
   }
 }
