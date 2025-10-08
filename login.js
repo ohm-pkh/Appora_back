@@ -56,32 +56,44 @@ const Compare_Hash = (pass, H_pass) =>{
 //Create Account
 export const Register = async(req, res) => {
     try{
+      //Get user_Info
+      const { email, password, role } = req.body;
+      // const {email, password, role, type} = req.body;
+      const type = "Verify_res";
+      //Hash password
+      const hashed_pass = await Hash_Password(password);
+      //Create user account in db
+      const NewUser = await pool.query(
+        "INSERT INTO account (email, password, role , acc_status ) VALUES ($1, $2, $3, 'Complete') RETURNING id",
+        [email, hashed_pass, role]
+      );
+
+      //Create userInfo for UID
+      const user = NewUser.row[0];
+
+      if (role === "restaurant") {
+        //Create verification code
         const V_Code = generateRandom6DigitNumber();
-        //Get user_Info
-        const { email, password, role } = req.body;
-        
-        //Hash password
-        const hashed_pass = await Hash_Password(password);
-        //Create user account in db
-        const NewUser = await pool.query(
-          "INSERT INTO account (email, password, role , acc_status ) VALUES ($1, $2, $3) RETURNING *",
-          [email, hashed_pass, role]
+        //Hashed the verification code
+        const VC_Hashed = await Hash_Password(V_Code);
+        const Vid = await pool.query(
+          "INSERT INTO validation_code (uid, code, type) VALUES ($1, $2, $3) ON CONFLICT (uid, type) DO UPDATE SET code = EXCLUDED.code RETURNING type;",
+          [user.id, VC_Hashed, type]
         );
-        //Return userinfo in json form
-        res.json(NewUser.row[0]);
-        
-        //Create userInfo for UID
-        const user = NewUser.row[0]
-        
-        if(role == "restaurant"){
-          const Vid = await pool.query(
-            "INSERT INTO validation_code (uid, code), VALUES ($1 ,$2) RETURNING *",
-            [user.id ,V_Code]
-          );
-        }
-        res.status(200)
+        //return uid from vcode
+        res.status(200).json({
+          uid: Vid.rows[0],
+          // user: NewUser.rows[0]
+          message: "User created with verification code",
+        });
+      }
+      //Return userinfo in json form
+      res
+        .status(200)
+        .json({ user_id: NewUser.rows[0], message: "User Created" });
     }catch(err){
         console.log(err.message);
+        res.status(500).send({message: "Internal server error"})
         throw(err);
     }
 }
@@ -92,10 +104,10 @@ export const Login = async(req, res) => {
     try {
         //Get info from frontend
         const { email, password } = req.body;
-
+        
         //Get userInfo
         const UserResult = await pool.query(
-          "SELECT * FROM account WHERE email = $1",
+          "SELECT id, password, role FROM account WHERE email = $1",
           [email]
         );
 
@@ -116,7 +128,6 @@ export const Login = async(req, res) => {
         //Create JWT
         const token = jwt.sign({
           id: user.id,
-          email: user.email,
           role: user.role,
         },
         JWT_SECRET,
@@ -140,16 +151,38 @@ export const Login = async(req, res) => {
 
 export const Verify_res = async(req, res) => {
   try {
-    const {Verifycode} = req.body;
-    const User = await pool.query(
-      "SELECT * FROM validation_code WHERE code = $1",
-      [Verifycode]
-    ); 
-    if(User.rows.length === 0){
-      res.status(401).send({error: "Invalid Verified code"})
+    //Get input
+    const {Verifycode, email} = req.body;
+    const result = await pool.query(
+      `SELECT vc.uid, vc.code 
+       FROM validation_code vc 
+       JOIN account a ON vc.uid = a.id 
+       WHERE a.email = $1`,
+      [email]
+    );
+    //If not found 
+    if (result.rows.length === 0) {
+      res.status(401).send({ error: "Invalid Verified code" });
     }
-    const res = User.rows[0];
-    const Verify = await pool.query("UPDATE account  SET acc_status = 'verified' WHERE id = $1", [res.uid]);
+    //Get vcode
+    const Rest_data = result.rows[0];
+    //Compare Vcode
+    const isMatch = await bcrypt.compare(Verifycode, userData.code);
+    //If not matched 
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid verification code" });
+    }
+    //Update status
+    const Verify = await pool.query("UPDATE account  SET acc_status = 'Complete' WHERE id = $1", [res.uid]);
+    //Delete Data
+    const Del_VC = await pool.query(
+      "DELETE FROM validation_code WHERE uid = $1 RETURNING uid",
+      [res.uid]
+    );
+    res.status(200).json({success: true,
+      uid: Del_VC.uid,
+      message:"Restaurant verified"
+    });
   } catch (error) {
     console.log(error.message);
     res.status(500).send({ error: "Internal server error" });
@@ -158,13 +191,29 @@ export const Verify_res = async(req, res) => {
 
 export const Forgot_Pass = async(req, res) => {
   try {
+    //Get user email
     const {email} = req.body;
-    const text = "Password Recovery"
+    // const {email, type} = req.body;
+    const type = "Recovery";
+    //Create Validation code
+    const V_Code = generateRandom6DigitNumber();
+    //Hashed the verification code
+    const VC_Hashed = await Hash_Password(V_Code);
+    // Insert into value
+    const Vid = await pool.query(
+      "INSERT INTO validation_code (uid, code, type) VALUES ($1, $2, $3) ON CONFLICT (uid, type) DO UPDATE SET code = EXCLUDED.code RETURNING type;",
+      [user.id, VC_Hashed, type]
+    ); 
+    //Convert code to string
+    const code = V_Code.toString()
+    //Text for sending email
+    const text = `Your verification code is ${code}`;
+    //Create sender and send email
     const Sender =  await Send_Email(text, email);
     if(Sender){
       res.status(200).send({message : "Email Sended"});
     }else{
-      res.status(400).send({ message: "Failed to send email" });
+      res.status(401).send({ message: "Failed to send email" });
     }
   
   } catch (error) {
@@ -175,7 +224,31 @@ export const Forgot_Pass = async(req, res) => {
 
 export const Reset_Pass = async(req, res) =>{
   try {
-    const {password, email} = req.body; 
+    //Get input
+    const { password, email } = req.body; 
+    // const { password, email, Verifycode } = req.body; 
+    
+    //If need to verify
+    const result = await pool.query(
+      `SELECT vc.uid, vc.code 
+       FROM validation_code vc 
+       JOIN account a ON vc.uid = a.id 
+       WHERE a.email = $1`,
+      [email]
+    );
+    //If not found
+    if (result.rows.length === 0) {
+      res.status(401).send({ error: "Invalid Verified code" });
+    }
+    //Get vcode
+    const Rest_data = result.rows[0];
+    //Compare Vcode
+    const isMatch = await bcrypt.compare(Verifycode, userData.code);
+    //If not matched
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid verification code" });
+    }
+    //Only reset
     const Repass = await pool.query(
       "UPDATE account SET password = $1 WHERE email = $2 RETURNING *;",
       [password, email]

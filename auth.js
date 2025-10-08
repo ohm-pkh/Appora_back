@@ -31,6 +31,18 @@ const Check_Exist = async (email) => {
   }
 };
 
+const select_User = async(email) => {
+  try {
+    const user_info = await pool.query("SELECT  id, role FROM account WHERE email = $1",
+      [email]
+    );
+    return user_info;
+  } catch (error) {
+    console.log(error.message);
+    return null;
+  }
+}
+
 //Insert email into account
 const Insert_query = async (email) => {
   try {
@@ -121,13 +133,16 @@ export const Login_with_Google = async(req, res) => {
     //Check if the user already in DB
     const user = await Check_Exist(email);
     if(!user){
-      user = await Insert_query(email);
+      res.status(404).send({error: "User not founded"});
     }
+    //If user exist get the info
+    const user_info = await select_User(email);
+    //Access row of user_info
+    const Info = user_info.rows[0];
     //Create JWT
     const user_Token = jwt.sign({
-      sub : sub,
-      name : name,
-      email: email
+      id : Info.id,
+      rol : Info.role
     }, JWT_SECRET,
   {expiresIn: "7d"});
 
