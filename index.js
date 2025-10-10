@@ -22,10 +22,10 @@ const PORT = process.env.PORT;
 
 app.use(cors());//waiting for frontend
 app.use(express.json());
-app.use(session({secret: `cat`}));
-app.use(passport.initialize());
-app.use(passport.session());
-app.use(helmet());
+// app.use(session({secret: `cat`}));
+// app.use(passport.initialize());
+// app.use(passport.session());
+// app.use(helmet());
 
 function isLoggedIn(req, res, next) {
   req.user ? next() : res.sendStatus(401);
