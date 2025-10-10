@@ -57,8 +57,6 @@ export const Register = async (req, res) => {
       password,
       role
     } = req.body;
-    // const {email, password, role, type} = req.body;
-    const type = "Verify_res";
     //Hash password
     const hashed_pass = await Hash_Password(password);
     //Set status
@@ -77,7 +75,7 @@ export const Register = async (req, res) => {
       const V_Code = generateRandom6DigitNumber();
       //Hashed the verification code
       const VC_Hashed = await Hash_Password(V_Code.toString());
-      const type = 'Verify_res'
+      const type = 'Verify_res';
       const Vid = await pool.query(
   `INSERT INTO validation_code (uid, code, type)
    VALUES ($1, $2, $3)
