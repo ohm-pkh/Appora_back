@@ -72,21 +72,44 @@ export const Register = async (req, res) => {
     //Create userInfo for UID
     const user = NewUser.rows[0];
 
-    if (role === "restaurant") {
+    if (role === "Restaurant") {
       //Create verification code
       const V_Code = generateRandom6DigitNumber();
       //Hashed the verification code
-      const VC_Hashed = await Hash_Password(V_Code);
+      const VC_Hashed = await Hash_Password(V_Code.toString());
+      const type = 'Verify_res'
       const Vid = await pool.query(
-        "INSERT INTO validation_code (uid, code, type) VALUES ($1, $2, $3) ON CONFLICT (uid, type) DO UPDATE SET code = EXCLUDED.code RETURNING type;",
-        [user.id, VC_Hashed, type]
-      );
+  `INSERT INTO validation_code (uid, code, type)
+   VALUES ($1, $2, $3)
+   ON CONFLICT (uid) DO UPDATE 
+   SET code = EXCLUDED.code, expire_time = DEFAULT
+   WHERE validation_code.type = EXCLUDED.type
+   RETURNING uid;`,
+  [user.id, VC_Hashed, type]
+);
+      //Send Validate code to Restaurant
+      const email_subject = `Appora verify Code`;
+      const email_body = `Here’s your verification code:
+
+${V_Code}
+
+Please enter this code in the app to verify your account.
+This code will expire in 15 minutes.
+.
+
+Best regards,
+The Appora Team`;
+      const Sender = await Send_Email(email_body, email, email_subject);
+      if (!Sender) {
+        throw new Error("Send email Fail!");
+      }
       //return uid from vcode
       res.status(200).json({
-        uid: Vid.rows[0],
+        uid: Vid.rows[0].uid,
         // user: NewUser.rows[0]
         message: "User created with verification code",
       });
+      return;
     }
     // Send welcome email to new user.
     const email_subject = `Welcome to Appora`;
