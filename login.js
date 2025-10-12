@@ -77,14 +77,14 @@ export const Register = async (req, res) => {
       const VC_Hashed = await Hash_Password(V_Code.toString());
       const type = 'Verify_res';
       const Vid = await pool.query(
-  `INSERT INTO validation_code (uid, code, type)
+        `INSERT INTO validation_code (uid, code, type)
    VALUES ($1, $2, $3)
    ON CONFLICT (uid) DO UPDATE 
    SET code = EXCLUDED.code, expire_time = DEFAULT
    WHERE validation_code.type = EXCLUDED.type
    RETURNING uid;`,
-  [user.id, VC_Hashed, type]
-);
+        [user.id, VC_Hashed, type]
+      );
       //Send Validate code to Restaurant
       const email_subject = `Appora verify Code`;
       const email_body = `Here’s your verification code:
@@ -102,12 +102,11 @@ The Appora Team`;
         throw new Error("Send email Fail!");
       }
       //return uid from vcode
-      res.status(200).json({
+      return res.status(200).json({
         uid: Vid.rows[0].uid,
         // user: NewUser.rows[0]
         message: "User created with verification code",
       });
-      return;
     }
     // Send welcome email to new user.
     const email_subject = `Welcome to Appora`;
@@ -146,7 +145,7 @@ export const Login = async (req, res) => {
 
     //Get userInfo
     const UserResult = await pool.query(
-      "SELECT id, password, role FROM account WHERE email = $1",
+      "SELECT id, password, role, acc_status FROM account WHERE email = $1",
       [email]
     );
 
@@ -160,11 +159,18 @@ export const Login = async (req, res) => {
     //Create data from info
     const user = UserResult.rows[0];
 
+    if (user.acc_status === "Pending") {
+      return res.status(403).send({
+        id: user.id,
+        message: "Account not verify"
+      });
+    }
+
     //Compare hashed password with inputted password 
     const isMatch = await Compare_Hash(password, user.password);
     if (!isMatch) {
       return res.status(401).send({
-        error: "Invalid email or password"
+        message: "Invalid email or password"
       });
     }
 
@@ -180,17 +186,12 @@ export const Login = async (req, res) => {
 
     //Send Response
     res.status(200).json({
-      // user: {
-      //   id: user.id,
-      //   email: user.email,
-      //   role: user.role,
-      // },
       token: token
     });
   } catch (err) {
     console.log(err.message);
     res.status(500).send({
-      error: "Internal server error"
+      message: "Internal server error"
     });
   }
 }
@@ -218,7 +219,7 @@ export const Verify_res = async (req, res) => {
     //Get vcode
     const Rest_data = result.rows[0];
     //Compare Vcode
-    const isMatch = await bcrypt.compare(Verifycode, userData.code);
+    const isMatch = await bcrypt.compare(Verifycode, Rest_data.code);
     //If not matched 
     if (!isMatch) {
       return res.status(401).json({
@@ -226,21 +227,24 @@ export const Verify_res = async (req, res) => {
       });
     }
     //Update status
-    const Verify = await pool.query("UPDATE account  SET acc_status = 'Complete' WHERE id = $1", [res.uid]);
+    const Verify = await pool.query("UPDATE account SET acc_status = 'Complete' WHERE id = $1", [Rest_data.uid]);
     //Delete Data
     const Del_VC = await pool.query(
       "DELETE FROM validation_code WHERE uid = $1 RETURNING uid",
-      [res.uid]
+      [Rest_data.uid]
     );
+
+    console.log(`Restaurant id: ${Del_VC.rows[0].uid} Complete verify.`);
     res.status(200).json({
       success: true,
-      uid: Del_VC.uid,
+      uid: Del_VC.rows[0].uid,
       message: "Restaurant verified"
     });
   } catch (error) {
-    console.log(error.message);
+    console.log(error);
     res.status(500).send({
-      error: "Internal server error"
+      error: "Internal server error",
+      message: "Internal Error."
     });
   }
 }
@@ -331,4 +335,53 @@ export const Reset_Pass = async (req, res) => {
       message: "Internal server error"
     })
   }
+}
+
+export const Resend_code = async (req, res) => {
+  try {
+    const {
+      email
+    } = req.body;
+    const V_Code = generateRandom6DigitNumber();
+    //Hashed the verification code
+    const VC_Hashed = await Hash_Password(V_Code.toString());
+    const type = 'Verify_res';
+    const Vid = await pool.query(
+      `INSERT INTO validation_code (uid, code, type)
+   VALUES ((SELECT id from account where email = $1), $2, $3)
+   ON CONFLICT (uid) DO UPDATE 
+   SET code = EXCLUDED.code, expire_time = DEFAULT
+   WHERE validation_code.type = EXCLUDED.type
+   RETURNING uid;`,
+      [email, VC_Hashed, type]
+    );
+    const email_subject = `Appora verify Code`;
+    const email_body = `Here’s your verification code:
+
+${V_Code}
+
+Please enter this code in the app to verify your account.
+This code will expire in 15 minutes.
+.
+
+Best regards,
+The Appora Team`;
+    const Sender = await Send_Email(email_body, email, email_subject);
+    if (!Sender) {
+      throw new Error("Send email Fail!");
+    }
+    //return uid from vcode
+    return res.status(200).json({
+      uid: Vid.rows[0].uid,
+      // user: NewUser.rows[0]
+      message: "User created with verification code",
+    });
+  } catch (err) {
+    console.log(err.message);
+    res.status(500).send({
+      message: "Internal server error"
+    })
+    throw (err);
+  }
+
 }

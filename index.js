@@ -12,6 +12,7 @@ import {
   Verify_res,
   Forgot_Pass,
   Reset_Pass,
+  Resend_code,
 } from "./login.js";
 
 
@@ -77,8 +78,9 @@ app.get("/", (req,res) =>{
 
 //Authentication
 app.post("/Sign_in", Register);
-app.post("LogIn", Login);
-app.post("Verify_Res", Verify_res);
+app.post("/LogIn", Login);
+app.post("/Verify_Res", Verify_res);
+app.post("/Resend_code",Resend_code);
 app.post("ForPass", Forgot_Pass);
 app.post("/Reset_pass", Reset_Pass);
 
