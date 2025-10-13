@@ -16,6 +16,7 @@ import {
   Check_email,
   CheckAuth,
 } from "./login.js";
+import pool from "./db.js";
 
 
 dotenv.config();
