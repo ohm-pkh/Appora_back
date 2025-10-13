@@ -177,7 +177,6 @@ export const Login = async (req, res) => {
     //Create JWT
     const token = jwt.sign({
         id: user.id,
-        role: user.role,
       },
       JWT_SECRET, {
         expiresIn: "7d"
@@ -186,13 +185,36 @@ export const Login = async (req, res) => {
 
     //Send Response
     res.status(200).json({
-      token: token
+      token: token,
+      role: user.role
     });
   } catch (err) {
     console.log(err.message);
     res.status(500).send({
       message: "Internal server error"
     });
+  }
+}
+
+export const CheckAuth = async (req, res) => {
+  try {
+    const token = req.query.token;
+    const verified = jwt.verify(token, JWT_SECRET);
+    const Result = await pool.query('SELECT role FROM account WHERE id = $1', [verified.id]);
+    if (Result.rows.count === 0) {
+      res.status(401).send({
+        error: "Invalid information"
+      });
+    }
+    const row = Result.rows[0];
+    res.status(200).json({
+      role: row.role
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(401).send({
+      message: 'Unauthorized',
+    })
   }
 }
 
@@ -269,68 +291,66 @@ export const Verify = async (req, res) => {
   }
 }
 
-export const Forgot_Pass = async (req, res) => {
-  try {
-    //Get user email
-    const {
-      email
-    } = req.body;
-    // const {email, type} = req.body;
-    const type = "Recovery";
-    //Create Validation code
-    const V_Code = generateRandom6DigitNumber();
-    //Hashed the verification code
-    const VC_Hashed = await Hash_Password(V_Code);
-    // Insert into value
-    const Vid = await pool.query(
-      `INSERT INTO validation_code (uid, code, type)
-   VALUES ((SELECT id from account where email = $1), $2, $3)
-   ON CONFLICT (uid) DO UPDATE 
-   SET code = EXCLUDED.code, expire_time = DEFAULT
-   WHERE validation_code.type = EXCLUDED.type
-   RETURNING uid;`,
-      [email, VC_Hashed, type]
-    );
-    if (result.rows.length === 0) {
-      // means conflict happened but WHERE condition failed
-      console.log("No insert/update done — condition didn't match");
-      return res.status(403).send({
-        message: "Account not verify"
-      });
-    }
-    //Convert code to string
-    const code = V_Code.toString()
-    //Text for sending email
-    const text = `We received a request to reset your password.
-Please use the verification code below to proceed:
+// export const Forgot_Pass = async (req, res) => {
+//   try {
+//     //Get user email
+//     const email = req.query.email;
+//     // const {email, type} = req.body;
+//     const type = "Recovery";
+//     //Create Validation code
+//     const V_Code = generateRandom6DigitNumber();
+//     //Hashed the verification code
+//     const VC_Hashed = await Hash_Password(V_Code);
+//     // Insert into value
+//     const Vid = await pool.query(
+//       `INSERT INTO validation_code (uid, code, type)
+//    VALUES ((SELECT id from account where email = $1), $2, $3)
+//    ON CONFLICT (uid) DO UPDATE 
+//    SET code = EXCLUDED.code, expire_time = DEFAULT
+//    WHERE validation_code.type = EXCLUDED.type
+//    RETURNING uid;`,
+//       [email, VC_Hashed, type]
+//     );
+//     if (result.rows.length === 0) {
+//       // means conflict happened but WHERE condition failed
+//       console.log("No insert/update done — condition didn't match");
+//       return res.status(403).send({
+//         message: "Account not verify"
+//       });
+//     }
+//     //Convert code to string
+//     const code = V_Code.toString()
+//     //Text for sending email
+//     const text = `We received a request to reset your password.
+// Please use the verification code below to proceed:
 
-${code}
+// ${code}
 
-This code will expire in 10 minutes for security reasons.
-If you didn’t request a password reset, you can safely ignore this email — your account will remain secure.
+// This code will expire in 10 minutes for security reasons.
+// If you didn’t request a password reset, you can safely ignore this email — your account will remain secure.
 
-Thank you,
-The Appora Team`;
-    const email_subject = `Appora verify Code`;
-    //Create sender and send email
-    const Sender = await Send_Email(text, email, email_subject);
-    if (Sender) {
-      res.status(200).send({
-        message: "Email Sended"
-      });
-    } else {
-      res.status(401).send({
-        message: "Failed to send email"
-      });
-    }
+// Thank you,
+// The Appora Team`;
+//     const email_subject = `Appora verify Code`;
+//     //Create sender and send email
+//     const Sender = await Send_Email(text, email, email_subject);
+//     if (Sender) {
+//       res.status(200).send({
+//         message: "Email Sended"
+//       });
+//     } else {
+//       res.status(401).send({
+//         message: "Failed to send email"
+//       });
+//     }
 
-  } catch (error) {
-    console.log(error.message);
-    res.status(500).send({
-      error: "Internal server error"
-    });
-  }
-}
+//   } catch (error) {
+//     console.log(error.message);
+//     res.status(500).send({
+//       error: "Internal server error"
+//     });
+//   }
+// }
 
 export const Reset_Pass = async (req, res) => {
   try {
@@ -342,8 +362,9 @@ export const Reset_Pass = async (req, res) => {
     // const { password, email, Verifycode } = req.body; 
 
     //If need to verify
+    const hashed_pass = await Hash_Password(password);
     const verified = jwt.verify(token, JWT_SECRET);
-    if(!verified.status){
+    if (!verified.status) {
       throw new Error(401).send({
         message: "status not found",
       });
@@ -351,7 +372,7 @@ export const Reset_Pass = async (req, res) => {
     //Only reset
     const Repass = await pool.query(
       "UPDATE account SET password = $1 WHERE id = $2 RETURNING *;",
-      [password, verified.id]
+      [hashed_pass, verified.id]
     );
     res.status(200).json({
       success: true
@@ -423,9 +444,41 @@ export const Check_email = async (req, res) => {
         message: "Account not verify."
       });
     }
-    res.status(200).json({
-      success: true
-    })
+    const type = 'Recovery';
+    const V_Code = generateRandom6DigitNumber();
+    //Hashed the verification code
+    const VC_Hashed = await Hash_Password(V_Code.toString());
+    console.log(email);
+    const Vid = await pool.query(
+      `INSERT INTO validation_code (uid, code, type)
+   VALUES ((SELECT id from account where email = $1), $2, $3)
+   ON CONFLICT (uid) DO UPDATE 
+   SET code = EXCLUDED.code, expire_time = DEFAULT
+   WHERE validation_code.type = EXCLUDED.type
+   RETURNING uid;`,
+      [email, VC_Hashed, type]
+    );
+    const email_subject = `Appora verify Code`;
+    const email_body = `Here’s your verification code${type === 'Recovery'? '(Recovery Password)':''}:
+
+${V_Code}
+
+Please enter this code in the app to verify your account.
+This code will expire in 15 minutes.
+.
+
+Best regards,
+The Appora Team`;
+    const Sender = await Send_Email(email_body, email, email_subject);
+    if (!Sender) {
+      throw new Error("Send email Fail!");
+    }
+    //return uid from vcode
+    return res.status(200).json({
+      success:true,
+      // user: NewUser.rows[0]
+      message: "User created with verification code",
+    });
   } catch (err) {
     console.log(err);
     res.status(404).send({
