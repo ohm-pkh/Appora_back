@@ -196,19 +196,26 @@ export const Login = async (req, res) => {
   }
 }
 
-export const Verify_res = async (req, res) => {
+export const Verify = async (req, res) => {
   try {
     //Get input
     const {
       Verifycode,
-      email
+      email,
+      type
     } = req.body;
+
+    if (!Verifycode) {
+      return res.status(400).send({
+        message: 'Verify Code not found'
+      })
+    }
     const result = await pool.query(
       `SELECT vc.uid, vc.code 
        FROM validation_code vc 
        JOIN account a ON vc.uid = a.id 
-       WHERE a.email = $1`,
-      [email]
+       WHERE a.email = $1 and vc.type = $2`,
+      [email, type]
     );
     //If not found 
     if (result.rows.length === 0) {
@@ -234,15 +241,28 @@ export const Verify_res = async (req, res) => {
       [Rest_data.uid]
     );
 
-    console.log(`Restaurant id: ${Del_VC.rows[0].uid} Complete verify.`);
+    console.log(`uid: ${Del_VC.rows[0].uid} Complete verify.`);
+    if (type === 'Recovery') {
+      const token = jwt.sign({
+          id: Del_VC.rows[0].uid,
+          status: 'Verified',
+        },
+        JWT_SECRET, {
+          expiresIn: "1d"
+        }
+      );
+      return res.status(200).json({
+        success: true,
+        token: token,
+      });
+    }
     res.status(200).json({
       success: true,
       uid: Del_VC.rows[0].uid,
-      message: "Restaurant verified"
     });
   } catch (error) {
     console.log(error);
-    res.status(500).send({
+    res.status(500).json({
       error: "Internal server error",
       message: "Internal Error."
     });
@@ -263,15 +283,37 @@ export const Forgot_Pass = async (req, res) => {
     const VC_Hashed = await Hash_Password(V_Code);
     // Insert into value
     const Vid = await pool.query(
-      "INSERT INTO validation_code (uid, code, type) VALUES ($1, $2, $3) ON CONFLICT (uid, type) DO UPDATE SET code = EXCLUDED.code RETURNING type;",
-      [user.id, VC_Hashed, type]
+      `INSERT INTO validation_code (uid, code, type)
+   VALUES ((SELECT id from account where email = $1), $2, $3)
+   ON CONFLICT (uid) DO UPDATE 
+   SET code = EXCLUDED.code, expire_time = DEFAULT
+   WHERE validation_code.type = EXCLUDED.type
+   RETURNING uid;`,
+      [email, VC_Hashed, type]
     );
+    if (result.rows.length === 0) {
+      // means conflict happened but WHERE condition failed
+      console.log("No insert/update done — condition didn't match");
+      return res.status(403).send({
+        message: "Account not verify"
+      });
+    }
     //Convert code to string
     const code = V_Code.toString()
     //Text for sending email
-    const text = `Your verification code is ${code}`;
+    const text = `We received a request to reset your password.
+Please use the verification code below to proceed:
+
+${code}
+
+This code will expire in 10 minutes for security reasons.
+If you didn’t request a password reset, you can safely ignore this email — your account will remain secure.
+
+Thank you,
+The Appora Team`;
+    const email_subject = `Appora verify Code`;
     //Create sender and send email
-    const Sender = await Send_Email(text, email);
+    const Sender = await Send_Email(text, email, email_subject);
     if (Sender) {
       res.status(200).send({
         message: "Email Sended"
@@ -294,41 +336,26 @@ export const Reset_Pass = async (req, res) => {
   try {
     //Get input
     const {
-      password,
-      email
+      token,
+      password
     } = req.body;
     // const { password, email, Verifycode } = req.body; 
 
     //If need to verify
-    const result = await pool.query(
-      `SELECT vc.uid, vc.code 
-       FROM validation_code vc 
-       JOIN account a ON vc.uid = a.id 
-       WHERE a.email = $1`,
-      [email]
-    );
-    //If not found
-    if (result.rows.length === 0) {
-      res.status(401).send({
-        error: "Invalid Verified code"
-      });
-    }
-    //Get vcode
-    const Rest_data = result.rows[0];
-    //Compare Vcode
-    const isMatch = await bcrypt.compare(Verifycode, userData.code);
-    //If not matched
-    if (!isMatch) {
-      return res.status(401).json({
-        error: "Invalid verification code"
+    const verified = jwt.verify(token, JWT_SECRET);
+    if(!verified.status){
+      throw new Error(401).send({
+        message: "status not found",
       });
     }
     //Only reset
     const Repass = await pool.query(
-      "UPDATE account SET password = $1 WHERE email = $2 RETURNING *;",
-      [password, email]
+      "UPDATE account SET password = $1 WHERE id = $2 RETURNING *;",
+      [password, verified.id]
     );
-    res.status(200).json(Repass.rows[0]);
+    res.status(200).json({
+      success: true
+    });
   } catch (error) {
     console.log(error.message);
     res.status(500).send({
@@ -339,13 +366,12 @@ export const Reset_Pass = async (req, res) => {
 
 export const Resend_code = async (req, res) => {
   try {
-    const {
-      email
-    } = req.body;
+    const email = req.query.email;
+    const type = req.query.type;
     const V_Code = generateRandom6DigitNumber();
     //Hashed the verification code
     const VC_Hashed = await Hash_Password(V_Code.toString());
-    const type = 'Verify_res';
+    console.log(email);
     const Vid = await pool.query(
       `INSERT INTO validation_code (uid, code, type)
    VALUES ((SELECT id from account where email = $1), $2, $3)
@@ -356,7 +382,7 @@ export const Resend_code = async (req, res) => {
       [email, VC_Hashed, type]
     );
     const email_subject = `Appora verify Code`;
-    const email_body = `Here’s your verification code:
+    const email_body = `Here’s your verification code${type === 'Recovery'? '(Recovery Password)':''}:
 
 ${V_Code}
 
@@ -384,4 +410,26 @@ The Appora Team`;
     throw (err);
   }
 
+}
+
+export const Check_email = async (req, res) => {
+  try {
+    const email = req.query.email;
+    console.log(email);
+    const Result = await pool.query(`SELECT acc_status FROM account WHERE email = $1`, [email]);
+    const row = Result.rows[0];
+    if (row.acc_status !== "Complete") {
+      return res.status(403).send({
+        message: "Account not verify."
+      });
+    }
+    res.status(200).json({
+      success: true
+    })
+  } catch (err) {
+    console.log(err);
+    res.status(404).send({
+      message: 'Email not found'
+    });
+  }
 }

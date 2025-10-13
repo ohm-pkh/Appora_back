@@ -9,10 +9,11 @@ import * as auth from "./auth.js"
 import {
   Register,
   Login,
-  Verify_res,
+  Verify,
   Forgot_Pass,
   Reset_Pass,
   Resend_code,
+  Check_email,
 } from "./login.js";
 
 
@@ -79,9 +80,10 @@ app.get("/", (req,res) =>{
 //Authentication
 app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
-app.post("/Verify_Res", Verify_res);
-app.post("/Resend_code",Resend_code);
-app.post("ForPass", Forgot_Pass);
+app.post("/Verify", Verify);
+app.get("/Verify",Resend_code);
+app.post("/ForPass", Forgot_Pass);
+app.get("/ForPass",Check_email)
 app.post("/Reset_pass", Reset_Pass);
 
 
