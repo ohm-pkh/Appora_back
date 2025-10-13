@@ -78,6 +78,22 @@ app.get("/", (req,res) =>{
   res.send("Hello world");
 })
 
+app.get("/testdb", async (req,res) =>{
+  try{
+    await pool.query(`SELECT 1 FROM account;`);
+    console.log("DB Working.");
+    res.status(200).json({
+      success: true,
+    })
+  }catch(err){
+    console.log("DB Fail.");
+    res.status(404).send({
+      success: false,
+    }
+    );
+  }
+})
+
 //Authentication
 app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
