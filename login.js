@@ -61,10 +61,12 @@ export const Register = async (req, res) => {
     const hashed_pass = await Hash_Password(password);
     //Set status
     const acc_status = role === "User" ? "Complete" : "Pending";
+
+    const Loweremail = email.toLowerCase();
     //Create user account in db
     const NewUser = await pool.query(
       `INSERT INTO account (email, password, role , acc_status ) VALUES ($1, $2, $3, $4) RETURNING id;`,
-      [email, hashed_pass, role, acc_status]
+      [Loweremail, hashed_pass, role, acc_status]
     );
 
     //Create userInfo for UID
@@ -142,11 +144,11 @@ export const Login = async (req, res) => {
       email,
       password
     } = req.body;
-
+    const Loweremail = email.toLowerCase();
     //Get userInfo
     const UserResult = await pool.query(
       "SELECT id, password, role, acc_status FROM account WHERE email = $1",
-      [email]
+      [Loweremail]
     );
 
     //If no user with specific email
@@ -232,12 +234,13 @@ export const Verify = async (req, res) => {
         message: 'Verify Code not found'
       })
     }
+    const Loweremail = email.toLowerCase();
     const result = await pool.query(
       `SELECT vc.uid, vc.code 
        FROM validation_code vc 
        JOIN account a ON vc.uid = a.id 
        WHERE a.email = $1 and vc.type = $2`,
-      [email, type]
+      [Loweremail, type]
     );
     //If not found 
     if (result.rows.length === 0) {
@@ -389,6 +392,7 @@ export const Resend_code = async (req, res) => {
   try {
     const email = req.query.email;
     const type = req.query.type;
+    const Loweremail = email.toLowerCase();
     const V_Code = generateRandom6DigitNumber();
     //Hashed the verification code
     const VC_Hashed = await Hash_Password(V_Code.toString());
@@ -400,7 +404,7 @@ export const Resend_code = async (req, res) => {
    SET code = EXCLUDED.code, expire_time = DEFAULT
    WHERE validation_code.type = EXCLUDED.type
    RETURNING uid;`,
-      [email, VC_Hashed, type]
+      [Loweremail, VC_Hashed, type]
     );
     const email_subject = `Appora verify Code`;
     const email_body = `Here’s your verification code${type === 'Recovery'? '(Recovery Password)':''}:
@@ -436,8 +440,9 @@ The Appora Team`;
 export const Check_email = async (req, res) => {
   try {
     const email = req.query.email;
+    const Loweremail = email.toLowerCase();
     console.log(email);
-    const Result = await pool.query(`SELECT acc_status FROM account WHERE email = $1`, [email]);
+    const Result = await pool.query(`SELECT acc_status FROM account WHERE email = $1`, [Loweremail]);
     const row = Result.rows[0];
     if (row.acc_status !== "Complete") {
       return res.status(403).send({

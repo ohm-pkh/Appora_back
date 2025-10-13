@@ -5,7 +5,7 @@ import passport from "passport";
 import { Profiler } from "react";
 import session  from "express-session";
 import helmet from "helmet";
-import * as auth from "./auth.js"
+import {Login_with_Google} from "./auth.js"
 import {
   Register,
   Login,
@@ -99,6 +99,7 @@ app.get("/testdb", async (req,res) =>{
 app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
 app.get("/LogIn",CheckAuth);
+app.post("/Gauth",Login_with_Google)
 app.post("/Verify", Verify);
 app.get("/Verify",Resend_code);
 //app.post("/ForPass", Forgot_Pass);
