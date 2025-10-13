@@ -87,7 +87,7 @@ app.get("/testdb", async (req,res) =>{
       success: true,
     })
   }catch(err){
-    console.log("DB Fail.");
+    console.log(err);
     res.status(404).send({
       success: false,
     }
