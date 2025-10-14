@@ -1,40 +1,40 @@
 import pool from "./db.js"
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken"
-import nodemailer from "nodemailer"
+import jwt from "jsonwebtoken";
+import nodemailer from 'nodemailer';
+
 
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const Appora_pass = process.env.Appora_pass;
+const MAIL_PASS = process.env.Appora_pass;
 
-//Setup nodemailer for sending email
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  host: 'smtp-relay.brevo.com',
   port: 587,
   secure: false,
   auth: {
-    user: "appora.wgad@gmail.com",
-    pass: Appora_pass, // must be Gmail App Password
+    user: '993c6b001@smtp-brevo.com',
+    pass: MAIL_PASS, // SMTP password
   },
 });
 
-//Function to send E-mail
-const Send_Email = async (text, email, title) => {
-  let sended = 0;
+
+export const Send_Email = async (text, email, title) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"Appora" <Appora.WGAD@gmail.com>`,
+    const result = await transporter.sendMail({
+      from: '"Appora" <appora.wgad@gmail.com>',
       to: email,
       subject: title,
-      text: text,
+      html: text,
     });
-    sended = 1;
-  } catch (error) {
-    console.log(error.message);
+    console.log("Email sent to", email);
+    console.log(result);
+    return 1;
+  } catch (err) {
+    console.error("Send email fail!", err);
+    return 0;
   }
-  return sended;
-}
-
+};
 //Create random 6 digit validation code
 function generateRandom6DigitNumber() {
   return Math.floor(100000 + Math.random() * 900000);
@@ -481,7 +481,7 @@ The Appora Team`;
     }
     //return uid from vcode
     return res.status(200).json({
-      success:true,
+      success: true,
       // user: NewUser.rows[0]
       message: "User created with verification code",
     });
