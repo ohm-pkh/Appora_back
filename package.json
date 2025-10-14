@@ -14,7 +14,8 @@
     "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "resend": "^6.1.2"
+    "resend": "^6.1.2",
+    "sib-api-v3-sdk": "^8.5.0"
   },
   "scripts": {
     "start": "node --env-file=.env --watch index.js"

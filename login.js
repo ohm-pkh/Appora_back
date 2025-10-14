@@ -1,40 +1,41 @@
 import pool from "./db.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from 'nodemailer';
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 
 
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const MAIL_PASS = process.env.Appora_pass;
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: '993c6b001@smtp-brevo.com',
-    pass: MAIL_PASS, // SMTP password
-  },
-});
+const client = SibApiV3Sdk.ApiClient.instance;
+const apiKey = client.authentications['api-key'];
+apiKey.apiKey = MAIL_PASS
 
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 export const Send_Email = async (text, email, title) => {
+  const sendSmtpEmail = {
+    to: [{ email: email }],
+    sender: { email: 'appora.wgad@gmail.com', name: 'Appora' }, // VERIFIED sender
+    subject: title,
+    htmlContent: text,
+  };
+
   try {
-    const result = await transporter.sendMail({
-      from: '"Appora" <appora.wgad@gmail.com>',
-      to: email,
-      subject: title,
-      html: text,
-    });
-    console.log("Email sent to", email);
-    console.log(result);
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log("Email sent successfully to", email);
     return 1;
   } catch (err) {
-    console.error("Send email fail!", err);
+    if (err.response && err.response.body) {
+      console.error("Send email failed:", err.response.body);
+    } else {
+      console.error("Send email failed:", err);
+    }
     return 0;
   }
 };
+
 //Create random 6 digit validation code
 function generateRandom6DigitNumber() {
   return Math.floor(100000 + Math.random() * 900000);
