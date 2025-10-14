@@ -9,7 +9,9 @@ const Appora_pass = process.env.Appora_pass;
 
 //Setup nodemailer for sending email
 const transporter = nodemailer.createTransport({
-  service: "gmail", // this automatically uses smtp.gmail.com
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: "appora.wgad@gmail.com",
     pass: Appora_pass, // must be Gmail App Password
@@ -453,7 +455,6 @@ export const Check_email = async (req, res) => {
     const V_Code = generateRandom6DigitNumber();
     //Hashed the verification code
     const VC_Hashed = await Hash_Password(V_Code.toString());
-    console.log(email);
     const Vid = await pool.query(
       `INSERT INTO validation_code (uid, code, type)
    VALUES ((SELECT id from account where email = $1), $2, $3)
@@ -461,7 +462,7 @@ export const Check_email = async (req, res) => {
    SET code = EXCLUDED.code, expire_time = DEFAULT
    WHERE validation_code.type = EXCLUDED.type
    RETURNING uid;`,
-      [email, VC_Hashed, type]
+      [Loweremail, VC_Hashed, type]
     );
     const email_subject = `Appora verify Code`;
     const email_body = `Here’s your verification code${type === 'Recovery'? '(Recovery Password)':''}:
