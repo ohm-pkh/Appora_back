@@ -23,7 +23,7 @@ const insertUser = async (email) => {
 
 // Select user info
 const selectUser = async (email) => {
-  const result = await pool.query("SELECT id, role FROM account WHERE email=$1 and acc_status = 'Complete' " , [email]);
+  const result = await pool.query("SELECT id, role, acc_status FROM account WHERE email=$1" , [email]);
   return result.rows[0];
 };
 
@@ -46,6 +46,10 @@ export const Login_with_Google = async (req, res) => {
       return res.status(404).send({
         email,
         message: 'Account not found',
+      })
+    }else if(user.acc_status === "Pending"){
+      return res.status(403).send({
+        message: "Account not complete",
       })
     }
 
