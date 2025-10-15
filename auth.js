@@ -49,6 +49,7 @@ export const Login_with_Google = async (req, res) => {
       })
     }else if(user.acc_status === "Pending"){
       return res.status(403).send({
+        email,
         message: "Account not complete",
       })
     }

@@ -242,7 +242,7 @@ export const Verify = async (req, res) => {
       `SELECT vc.uid, vc.code 
        FROM validation_code vc 
        JOIN account a ON vc.uid = a.id 
-       WHERE a.email = $1 and vc.type = $2`,
+       WHERE a.email = $1 and vc.type = $2 and vc.expire_time >= NOW()`,
       [Loweremail, type]
     );
     //If not found 
