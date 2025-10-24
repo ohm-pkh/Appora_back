@@ -76,7 +76,8 @@ function isLoggedIn(req, res, next) {
 
 
 app.get("/", (req,res) =>{
-  res.send("Hello world");
+  console.log("Server is alive!");
+  res.send('Server is alive! Welcome to Appora!');
 })
 
 app.get("/testdb", async (req,res) =>{
