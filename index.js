@@ -17,6 +17,7 @@ import {
   CheckAuth,
 } from "./login.js";
 import pool from "./db.js";
+import { restaurantPageInfo } from "./restaurantPage.js";
 
 
 dotenv.config();
@@ -100,6 +101,7 @@ app.get("/testdb", async (req,res) =>{
 app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
 app.get("/LogIn",CheckAuth);
+app.get("/RestaurantPage",restaurantPageInfo);
 app.post("/Gauth",Login_with_Google)
 app.post("/Verify", Verify);
 app.get("/Verify",Resend_code);
