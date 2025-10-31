@@ -17,7 +17,7 @@ import {
   CheckAuth,
 } from "./login.js";
 import pool from "./db.js";
-import { restaurantPageInfo } from "./restaurantPage.js";
+import { restaurantPageInfo,getType } from "./restaurantPage.js";
 
 
 dotenv.config();
@@ -108,6 +108,7 @@ app.get("/Verify",Resend_code);
 //app.post("/ForPass", Forgot_Pass);
 app.get("/ForPass",Check_email)
 app.post("/Reset_pass", Reset_Pass);
+app.get("/Type", getType);
 
 
 app.listen(PORT, "0.0.0.0", () => {

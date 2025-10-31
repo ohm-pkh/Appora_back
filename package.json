@@ -17,7 +17,14 @@
     "resend": "^6.1.2",
     "sib-api-v3-sdk": "^8.5.0"
   },
+  "type": "module",
   "scripts": {
-    "start": "node --env-file=.env --watch index.js"
+    "start": "node --env-file=.env --watch index.js",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.28.5",
+    "babel-jest": "^30.2.0",
+    "jest": "^30.2.0"
   }
 }
