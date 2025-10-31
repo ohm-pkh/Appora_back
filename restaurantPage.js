@@ -6,6 +6,8 @@ import {
 import jwt from "jsonwebtoken";
 import SibApiV3Sdk from 'sib-api-v3-sdk';
 import arrToQuery from "./function/arrToQuery.js";
+import axios from "axios";
+import { getLoc } from "./function/getGeoLoc.js";
 
 
 
@@ -41,6 +43,18 @@ export async function restaurantPageInfo(req, res) {
         res.status(500).send({
             error: "Server error"
         });
+    }
+}
+
+export async function getLocationInfo(req,res){
+    try{
+        const {lat,lon} = req.query
+        const location = await getLoc(lat,lon);
+        console.log(location);
+        res.status(200).json({location});
+    }catch(err){
+        console.log(err);
+        res.status(500).send({error: 'Internal server error'})
     }
 }
 
