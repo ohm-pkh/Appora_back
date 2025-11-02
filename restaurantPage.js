@@ -20,7 +20,7 @@ export async function restaurantPageInfo(req, res) {
     try {
         const token = req.query.token;
         const verified = jwt.verify(token, JWT_SECRET);
-        const Result = await pool.query('SELECT r.name,r.photo_path,r.description,r.lat,r.lon,r.status,a.email,rt.name as type,rt.id as type_id, oc.day, oc.open,oc.close,r.emergency FROM restaurants_info r join account a on r.id=a.id left join restaurant_with_type rwt on rwt.restaurant_id=r.id left join restaurant_types rt on rt.id=rwt.type_id left join open_close_hours oc on r.id=oc.restaurant_id WHERE r.id = $1', [verified.id]);
+        const Result = await pool.query('SELECT r.name,r.photo_path,r.description,r.lat,r.lon,r.status,a.email,rt.name as type,rt.id as type_id, oc.day, oc.open,oc.close,r.emergency,d.id as deli_id,d.name as deli_name,d.link FROM restaurants_info r join account a on r.id=a.id left join restaurant_with_type rwt on rwt.restaurant_id=r.id left join restaurant_types rt on rt.id=rwt.type_id left join open_close_hours oc on r.id=oc.restaurant_id left join delivery d on d.restaurant_id=r.id WHERE r.id = $1', [verified.id]);
         if (Result.rows.length === 0) {
             return res.status(401).send({
                 error: "Invalid information"
@@ -39,9 +39,11 @@ export async function restaurantPageInfo(req, res) {
         }
         const days = [];
         const typeFound = {};
+        const deliFound = {};
+        const delivery=[];
         if (Data.type_id) {
             Result.rows.forEach((row) => {
-                if (!typeFound[row.type]) {
+                if (row.type&&!typeFound[row.type]) {
                     type.push({
                         type: row.type,
                         id: row.type_id
@@ -49,13 +51,20 @@ export async function restaurantPageInfo(req, res) {
                     typeFound[row.type] = true;
                 }
 
-                if (!day[row.day]) {
+                if (row.day&&!day[row.day]) {
                     days.push({
                         day: row.day,
                         open: timeFormat(row.open),
                         close: timeFormat(row.close)
-                    })
-                    day[row.day] = true
+                    });
+                    day[row.day] = true;
+                }if(row.deli_id&&!deliFound[row.deli_id]){
+                    delivery.push({
+                        id:row.deli_id,
+                        name:row.deli_name,
+                        link:row.link
+                    });
+                    delivery[row.deli_id]=true;
                 }
 
             });
@@ -64,7 +73,8 @@ export async function restaurantPageInfo(req, res) {
             Data,
             types: type,
             days,
-            role: 'Restaurant'
+            delivery,
+            role: 'Restaurant',
         })
     } catch (err) {
         console.log(err);
