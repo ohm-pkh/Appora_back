@@ -3,7 +3,6 @@ import axios from "axios";
 const GEO_KEY = process.env.GEOKEY;
 
 export async function getLoc(lat, lon) {
-    console.log(`Geo:${GEO_KEY}`);
     try {
         const response = await axios.get("https://us1.locationiq.com/v1/reverse.php", {
             params: {
