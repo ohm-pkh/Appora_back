@@ -17,7 +17,8 @@ import {
   CheckAuth,
 } from "./login.js";
 import pool from "./db.js";
-import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory} from "./restaurantPage.js";
+import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUpdate} from "./restaurantPage.js";
+import upload from "./config/multer.js";
 
 
 dotenv.config();
@@ -102,6 +103,7 @@ app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
 app.get("/LogIn",CheckAuth);
 app.get("/RestaurantPage",restaurantPageInfo);
+app.patch("/RestaurantPage", upload.any(), restaurantUpdate)
 app.post("/Gauth",Login_with_Google)
 app.post("/Verify", Verify);
 app.get("/Verify",Resend_code);

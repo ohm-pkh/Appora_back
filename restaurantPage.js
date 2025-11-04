@@ -11,10 +11,30 @@ import {
     getLoc
 } from "./function/getGeoLoc.js";
 import timeFormat from "./function/timeFormat.js";
+import cloudinary from "./config/cloudinary.js";
 
 
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+function uploadToCloudinary(buffer) {
+    return new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream({}, (err, result) => {
+            if (err) reject(err)
+            else resolve({
+                url: result.secure_url,
+                public_id: result.public_id
+            })
+        }).end(buffer)
+    })
+}
+
+function publicIdFromUrl(url) {
+    const parts = url.split("/")
+    const last = parts[parts.length - 1] // menu_75sf0n.png
+    return last.substring(0, last.lastIndexOf(".")) // remove .png
+}
+
 
 export async function restaurantPageInfo(req, res) {
     try {
@@ -48,12 +68,11 @@ export async function restaurantPageInfo(req, res) {
             description: Data.description,
             lat: Data.lat,
             lon: Data.lon,
-            location:Data.location,
+            location: Data.location,
             status: Data.status,
             emergency: Data.emergency,
             email: Data.email
         }
-        console.log(userData);
         const type = [];
         const day = {
             Sun: false,
@@ -176,17 +195,177 @@ export async function getType(req, res) {
     }
 }
 
-export async function getMenuCategory(req,res){
-    try{
+export async function getMenuCategory(req, res) {
+    try {
         const result = await pool.query('SELECT * FROM category');
         const category = result.rows;
         res.status(200).json({
             category
         });
-    }catch(err){
+    } catch (err) {
         console.log(err);
         res.status(500).send({
-            error:"Server error"
+            error: "Server error"
+        })
+    }
+}
+
+export async function restaurantUpdate(req, res) {
+    try {
+        const meta = JSON.parse(req.body.meta)
+        const token = meta.token;
+        const verified = jwt.verify(token, JWT_SECRET);
+
+        const oldMainPublicId = meta.basicInfo.public_id;
+
+        let newMainPhoto = null;
+        const mainFile = req.files.find(f => f.fieldname === "main_photo");
+
+        if (mainFile) {
+            newMainPhoto = await uploadToCloudinary(mainFile.buffer)
+            if (oldMainPublicId) {
+                await cloudinary.uploader.destroy(oldMainPublicId)
+            }
+        }
+
+        const menuPhotoUpdates = []
+
+        for (let i = 0; i < meta.menus.length; i++) {
+            const oldMenuPublicId = meta.menus[i].menu_public_id
+            const f = req.files.find(f => f.fieldname === `menu_photo_${i}`)
+            if (f) {
+                const newUploaded = await uploadToCloudinary(f.buffer)
+
+                if (oldMenuPublicId) {
+                    await cloudinary.uploader.destroy(oldMenuPublicId)
+                }
+
+                menuPhotoUpdates.push({
+                    index: i,
+                    url: newUploaded.url,
+                    public_id: newUploaded.public_id
+                })
+            }
+        }
+        console.log(newMainPhoto);
+
+        await pool.query(
+            `update restaurants_info 
+       set name=$1, description=$2, lat=$3, lon=$4, location=$5, status=$6, photo_path=$7, public_id=$8
+       where id=$9`,
+            [
+                meta.basicInfo.name,
+                meta.basicInfo.description,
+                meta.basicInfo.lat,
+                meta.basicInfo.lon,
+                meta.basicInfo.location,
+                meta.basicInfo.status,
+                newMainPhoto?.url || meta.basicInfo.photo_path,
+                newMainPhoto?.public_id || meta.basicInfo.public_id,
+                verified.id
+            ]
+        )
+
+        for (const t of meta.types) {
+            await pool.query(
+                `INSERT INTO restaurant_with_type(restaurant_id,type_id)
+                VALUES($1,$2)
+                ON CONFLICT (restaurant_id,type_id) DO NOTHING`,
+                [verified.id, t.id]
+            )
+        }
+
+        await pool.query(
+            `Update open_close_daystatus 
+                SET mon = FALSE,
+                    tue = FALSE,
+                    wed = FALSE,
+                    thu = FALSE,
+                    fri = FALSE,
+                    sat = FALSE,
+                    sun = FALSE
+                WHERE restaurant_id = $1`,
+            [verified.id]
+        );
+
+        for (const d of meta.days) {
+
+            await pool.query(
+                'INSERT INTO open_close_hours(restaurant_id,day,open,close)VALUES($1,$2,$3,$4)',
+                [verified.id, d.day, d.open, d.close]
+            );
+        }
+
+        await pool.query(`Delete FROM delivery where restaurant_id = $1`, [verified.id]);
+
+        for (const d of meta.delivery) {
+            await pool.query(`INSERT INTO delivery(restaurant_id,name,link) VALUES ($1,$2,$3)`,
+                [verified.id, d.name, d.link]
+            )
+        }
+
+        for (let i = 0; i < meta.menus.length; i++) {
+            const photo = menuPhotoUpdates.find(p => p.index === i)
+            const m = meta.menus[i];
+            let result
+            for (let i = 0; i < meta.menus.length; i++) {
+                const m = meta.menus[i]
+                const photo = menuPhotoUpdates.find(p => p.index === i) // ← here
+
+                if (m.id) {
+                    await pool.query(`
+            update menus
+            set
+                restaurant_id = $1,
+                photo_path = $2,
+                price = $3,
+                name = $4,
+                description = $5,
+                menu_public_id = $6
+            where id = $7
+            returning id
+        `, [
+                        verified.id,
+                        photo?.url ?? m.photo_path,
+                        m.price,
+                        m.name,
+                        m.description,
+                        photo?.public_id ?? m.public_id,
+                        m.id
+                    ])
+                } else {
+                    await pool.query(`
+            insert into menus (restaurant_id,photo_path,price,name,description,menu_public_id)
+            values ($1,$2,$3,$4,$5,$6)
+            returning id
+        `, [
+                        verified.id,
+                        photo?.url ?? null,
+                        m.price,
+                        m.name,
+                        m.description,
+                        photo?.public_id ?? null
+                    ])
+                }
+            }
+
+            await pool.query(`Delete from menu_categories where menu_id = $1`,[result.id]);
+            for(const c of m.category){
+                await pool.query(`Insert into menu_categories(menu_id,category_id)VALUES($1,$2)`,[result.id,c.id]);
+            }
+        }
+
+
+        res.json({
+            ok: true,
+            mainPhoto: newMainPhoto,
+            menuPhotos: menuPhotoUpdates
+        })
+
+    } catch (err) {
+        console.log(err)
+        res.status(500).json({
+            error: err.message
         })
     }
 }
