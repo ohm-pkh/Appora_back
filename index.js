@@ -5,6 +5,7 @@ import passport from "passport";
 import { Profiler } from "react";
 import session  from "express-session";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import {Login_with_Google} from "./auth.js"
 import {
   Register,
@@ -26,8 +27,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT;
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  message: "Too many requests from this IP, please try again after 15 minutes",
+});
+
 app.use(cors());//waiting for frontend
 app.use(express.json());
+app.use(limiter);
 // app.use(session({secret: `cat`}));
 // app.use(passport.initialize());
 // app.use(passport.session());
