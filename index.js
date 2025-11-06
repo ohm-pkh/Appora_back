@@ -18,7 +18,7 @@ import {
   CheckAuth,
 } from "./login.js";
 import pool from "./db.js";
-import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUpdate} from "./restaurantPage.js";
+import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUpdate,updateEmergency} from "./restaurantPage.js";
 import upload from "./config/multer.js";
 
 
@@ -121,6 +121,7 @@ app.post("/Reset_pass", Reset_Pass);
 app.get("/Type", getType);
 app.get("/Location",getLocationInfo);
 app.get("/Menu",getMenuCategory);
+app.patch("/Emergency",updateEmergency);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);

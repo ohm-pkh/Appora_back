@@ -226,8 +226,6 @@ export async function restaurantUpdate(req, res) {
         const token = meta.token;
         const verified = jwt.verify(token, JWT_SECRET);
 
-        console.log(meta.basicInfo);
-
         const oldMainPublicId = meta.basicInfo.public_id;
 
         let newMainPhoto = null;
@@ -308,11 +306,13 @@ export async function restaurantUpdate(req, res) {
         await pool.query(`Delete FROM delivery where restaurant_id = $1`, [verified.id]);
 
         for (const d of meta.delivery) {
-            await pool.query(`INSERT INTO delivery(restaurant_id,name,link) VALUES ($1,$2,$3)`,
+            if(d.name){
+                await pool.query(`INSERT INTO delivery(restaurant_id,name,link) VALUES ($1,$2,$3)`,
                 [verified.id, d.name, d.link]
             )
+            }
+            
         };
-
         const updatedMenuIds = [];
 
         for (let idx = 0; idx < meta.menus.length; idx++) {
@@ -402,5 +402,19 @@ export async function restaurantUpdate(req, res) {
         res.status(500).json({
             error: err.message
         })
+    }
+}
+
+export async function updateEmergency(req,res){
+    try{
+
+        const newStatus = req.body.emergency;
+        const verified = jwt.verify(req.body.token, JWT_SECRET);
+        const result = await pool.query(`Update restaurants_info set emergency = $1 where id = $2`,[newStatus,verified.id])
+        console.log(verified+'update emergency to: '+newStatus);
+        res.status(200).json({message:'success'});
+    }catch(err){
+        console.log(err);
+        res.status(500).send({message:'Internal error'});
     }
 }
