@@ -3,11 +3,13 @@ import timeFormat from "./function/timeFormat.js";
 
 export default async function getRestaurants(req, res) {
     const now = new Date();
+    const search = req.query.search;
+    console.log(req.query.search);
     const days = ["Sun", "Mon", "Tues", "Wed", "Thu", "Fri", "Sat"];
     const day = days[now.getDay()];
     const formattedTime = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
-    console.log('day',day,'time',formattedTime);
-    try{
+    console.log('day', day, 'time', formattedTime);
+    try {
         const result = await pool.query(`
             SELECT distinct r.*,max(m.price) as max_price,min(m.price) as min_price ,array_agg(t.name) as type
             from restaurants_info r 
@@ -15,14 +17,35 @@ export default async function getRestaurants(req, res) {
             left join menus m on m.restaurant_id = r. id 
             left join restaurant_with_type rt on rt.restaurant_id = r.id
             left join restaurant_types t on t.id=rt.type_id
-            where oc.open<=$1 and oc.close>=$1 and oc.day=$2 and r.emergency <> true and status='Available' 
-            group by r.id`
-            ,[formattedTime,day])
+            left join menu_categories mc on m.id=mc.menu_id
+            left join category c on c.id= mc.category_id
+            WHERE oc.open <= $1 
+            AND oc.close >= $1 
+            AND oc.day = $2 
+            AND r.emergency <> true 
+            AND r.status = 'Available'
+            ${search ? `$3 = '' AND (
+                r.name % $3 OR 
+                m.name % $3 OR 
+                t.name % $3 OR 
+                c.name % $3
+            )` : ``}
+            ${ search ? `ORDER BYGREATEST(
+                similarity(r.name, $3),
+                similarity(m.name, $3),
+                similarity(t.name, $3),
+                similarity(c.name, $3)
+            ) DESC
+            ` : ``}
+            group by r.id
+        `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
         res.status(200).json(result.rows);
-    }catch(err){
+    } catch (err) {
         console.log(err);
-        res.status(404).send({message:'not found'});
+        res.status(404).send({
+            message: 'not found'
+        });
     }
 }
 
