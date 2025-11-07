@@ -1,4 +1,4 @@
-import pool from "./db.js"
+import pool from "./config/db.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import SibApiV3Sdk from 'sib-api-v3-sdk';

@@ -17,9 +17,11 @@ import {
   Check_email,
   CheckAuth,
 } from "./login.js";
-import pool from "./db.js";
+import pool from "./config/db.js";
 import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUpdate,updateEmergency} from "./restaurantPage.js";
 import upload from "./config/multer.js";
+import getRestaurants from "./restaurants.js";
+import { restaurantFullDetain } from "./restaurants.js";
 
 
 dotenv.config();
@@ -122,6 +124,8 @@ app.get("/Type", getType);
 app.get("/Location",getLocationInfo);
 app.get("/Menu",getMenuCategory);
 app.patch("/Emergency",updateEmergency);
+app.get('/Restaurants',getRestaurants);
+app.get('/RestaurantDetail',restaurantFullDetain);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
