@@ -192,8 +192,11 @@ export async function getLocationInfo(req, res) {
 export async function getType(req, res) {
     try {
         const types = req.query.types;
+        console.log('type:', types);
         const typeQuery = arrToQuery(types);
-        const result = await pool.query('SELECT name,id FROM restaurant_types WHERE id <> ALL($1::uuid[])', [typeQuery]);
+        const result = await pool.query(`SELECT name,id FROM restaurant_types ${types ? `WHERE id <> ALL($1::uuid[])` : ''}`,
+            types ? [types] : []
+        );
         res.status(200).json({
             types: result.rows
         });
@@ -306,12 +309,12 @@ export async function restaurantUpdate(req, res) {
         await pool.query(`Delete FROM delivery where restaurant_id = $1`, [verified.id]);
 
         for (const d of meta.delivery) {
-            if(d.name){
+            if (d.name) {
                 await pool.query(`INSERT INTO delivery(restaurant_id,name,link) VALUES ($1,$2,$3)`,
-                [verified.id, d.name, d.link]
-            )
+                    [verified.id, d.name, d.link]
+                )
             }
-            
+
         };
         const updatedMenuIds = [];
 
@@ -405,16 +408,20 @@ export async function restaurantUpdate(req, res) {
     }
 }
 
-export async function updateEmergency(req,res){
-    try{
+export async function updateEmergency(req, res) {
+    try {
 
         const newStatus = req.body.emergency;
         const verified = jwt.verify(req.body.token, JWT_SECRET);
-        const result = await pool.query(`Update restaurants_info set emergency = $1 where id = $2`,[newStatus,verified.id])
-        console.log(verified+'update emergency to: '+newStatus);
-        res.status(200).json({message:'success'});
-    }catch(err){
+        const result = await pool.query(`Update restaurants_info set emergency = $1 where id = $2`, [newStatus, verified.id])
+        console.log(verified + 'update emergency to: ' + newStatus);
+        res.status(200).json({
+            message: 'success'
+        });
+    } catch (err) {
         console.log(err);
-        res.status(500).send({message:'Internal error'});
+        res.status(500).send({
+            message: 'Internal error'
+        });
     }
 }
