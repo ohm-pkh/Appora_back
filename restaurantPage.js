@@ -191,22 +191,46 @@ export async function getLocationInfo(req, res) {
 
 export async function getType(req, res) {
     try {
-        const types = req.query.types;
-        console.log('type:', types);
-        const typeQuery = arrToQuery(types);
-        const result = await pool.query(`SELECT name,id FROM restaurant_types ${types ? `WHERE id <> ALL($1::uuid[])` : ''}`,
-            types ? [types] : []
+        const types = req.query.types; // "uuid1,uuid2,..."
+        const typeArray = types ? types.split(',') : [];
+
+        console.log('typeArray:', typeArray);
+
+        const result = await pool.query(
+            `SELECT name,id FROM restaurant_types ${typeArray.length > 0 ? 'WHERE id <> ALL($1::uuid[])' : ''}`,
+            typeArray.length > 0 ? [typeArray] : []
         );
+
         res.status(200).json({
             types: result.rows
         });
     } catch (err) {
         console.log(err);
         res.status(500).send({
-            error: "Server error"
+            error: 'Server error'
         });
     }
 }
+
+
+// export async function getType(req, res) {
+//     try {
+//         const types = req.query.types;
+//         console.log('type:', types);
+//         const typeQuery = arrToQuery(types);
+//         const result = await pool.query(`SELECT name,id FROM restaurant_types ${types ? `WHERE id <> ALL($1::uuid[])` : ''}`,
+//             types ? [types] : []
+//         );
+//         res.status(200).json({
+//             types: result.rows
+//         });
+//     } catch (err) {
+//         console.log(err);
+//         res.status(500).send({
+//             error: "Server error"
+//         });
+//     }
+// }
 
 export async function getMenuCategory(req, res) {
     try {
@@ -226,6 +250,7 @@ export async function getMenuCategory(req, res) {
 export async function restaurantUpdate(req, res) {
     try {
         const meta = JSON.parse(req.body.meta)
+        console.log(meta);
         const token = meta.token;
         const verified = jwt.verify(token, JWT_SECRET);
 
@@ -276,6 +301,16 @@ export async function restaurantUpdate(req, res) {
                 verified.id
             ]
         )
+
+        const typeIds = meta.types.map(t => t.id);
+
+        await pool.query(
+            `DELETE FROM restaurant_with_type
+            WHERE restaurant_id = $1
+            AND type_id <> ALL($2::uuid[])`,
+            [verified.id, typeIds]
+        );
+
 
         for (const t of meta.types) {
             await pool.query(

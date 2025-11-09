@@ -11,7 +11,7 @@ export default async function getRestaurants(req, res) {
     console.log('day', day, 'time', formattedTime);
     try {
         const result = await pool.query(`
-            SELECT distinct r.*,max(m.price) as max_price,min(m.price) as min_price ,array_agg(t.name) as type
+            SELECT distinct r.*,max(m.price) as max_price,min(m.price) as min_price ,(jsonb_agg(distinct jsonb_build_object('id', t.id, 'name', t.name) )) as types, jsonb_agg(distinct jsonb_build_object('id', c.id, 'name', c.name) ) as categories
             from restaurants_info r 
             left join open_close_hours oc on r.id = oc.restaurant_id 
             left join menus m on m.restaurant_id = r. id 
