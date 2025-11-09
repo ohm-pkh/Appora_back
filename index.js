@@ -22,6 +22,7 @@ import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUp
 import upload from "./config/multer.js";
 import getRestaurants from "./restaurants.js";
 import { restaurantFullDetain } from "./restaurants.js";
+import { getCart,deleteCart,addCart } from "./Cart.js";
 
 
 dotenv.config();
@@ -30,12 +31,20 @@ const app = express();
 const PORT = process.env.PORT;
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  windowMs: 10 * 60 * 1000,
+  max: 100, 
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
 
-app.use(cors());//waiting for frontend
+const cartLimiter = rateLimit({
+  windowMs: 1000, 
+  max: 5, 
+  message: "Too many cart actions, please wait a moment",
+  keyGenerator: (req) => req.query.token || req.user?.id || req.ip, 
+});
+
+
+app.use(cors());
 app.use(express.json());
 app.use(limiter);
 // app.use(session({secret: `cat`}));
@@ -126,6 +135,9 @@ app.get("/Menu",getMenuCategory);
 app.patch("/Emergency",updateEmergency);
 app.get('/Restaurants',getRestaurants);
 app.get('/RestaurantDetail',restaurantFullDetain);
+app.get('/Cart',getCart);
+app.delete('/Cart',cartLimiter,deleteCart)
+app.post('/Cart',cartLimiter,addCart)
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
