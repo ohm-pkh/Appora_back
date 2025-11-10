@@ -22,7 +22,7 @@ import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUp
 import upload from "./config/multer.js";
 import getRestaurants from "./restaurants.js";
 import { restaurantFullDetain } from "./restaurants.js";
-import { getCart,deleteCart,addCart } from "./Cart.js";
+import { getCart,deleteCart,addCart,getCartRestaurant } from "./Cart.js";
 import getTransportTime from "./getTransportTime.js";
 
 
@@ -135,10 +135,11 @@ app.get("/Menu",getMenuCategory);
 app.patch("/Emergency",updateEmergency);
 app.get('/Restaurants',getRestaurants);
 app.get('/RestaurantDetail',restaurantFullDetain);
-app.get('/Cart',getCart);
+app.get('/Cart',getCart)
 app.delete('/Cart',cartLimiter,deleteCart)
 app.post('/Cart',cartLimiter,addCart)
 app.post('/TransportTime',getTransportTime)
+app.get('/CartRestaurant',getCartRestaurant); 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
