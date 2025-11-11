@@ -6,8 +6,11 @@ export default async function getRestaurants(req, res) {
     const search = req.query.search;
     console.log(req.query.search);
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const day = days[now.getDay()];
-    const formattedTime = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+    const nowBKK = new Date(now.toLocaleString('en-US', {
+        timeZone: 'Asia/Bangkok'
+    }));
+    const day = days[nowBKK.getDay()];
+    const formattedTime = `${nowBKK.getHours()}:${nowBKK.getMinutes()}:${nowBKK.getSeconds()}`;
     console.log('day', day, 'time', formattedTime);
     try {
         const result = await pool.query(`
