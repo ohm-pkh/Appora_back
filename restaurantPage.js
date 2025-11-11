@@ -1,4 +1,4 @@
-import pool from "./db.js"
+import pool from "./config/db.js"
 import bcrypt from "bcrypt";
 import {
     response
@@ -191,19 +191,46 @@ export async function getLocationInfo(req, res) {
 
 export async function getType(req, res) {
     try {
-        const types = req.query.types;
-        const typeQuery = arrToQuery(types);
-        const result = await pool.query('SELECT name,id FROM restaurant_types WHERE id <> ALL($1::uuid[])', [typeQuery]);
+        const types = req.query.types; // "uuid1,uuid2,..."
+        const typeArray = types ? types.split(',') : [];
+
+        console.log('typeArray:', typeArray);
+
+        const result = await pool.query(
+            `SELECT name,id FROM restaurant_types ${typeArray.length > 0 ? 'WHERE id <> ALL($1::uuid[])' : ''}`,
+            typeArray.length > 0 ? [typeArray] : []
+        );
+
         res.status(200).json({
             types: result.rows
         });
     } catch (err) {
         console.log(err);
         res.status(500).send({
-            error: "Server error"
+            error: 'Server error'
         });
     }
 }
+
+
+// export async function getType(req, res) {
+//     try {
+//         const types = req.query.types;
+//         console.log('type:', types);
+//         const typeQuery = arrToQuery(types);
+//         const result = await pool.query(`SELECT name,id FROM restaurant_types ${types ? `WHERE id <> ALL($1::uuid[])` : ''}`,
+//             types ? [types] : []
+//         );
+//         res.status(200).json({
+//             types: result.rows
+//         });
+//     } catch (err) {
+//         console.log(err);
+//         res.status(500).send({
+//             error: "Server error"
+//         });
+//     }
+// }
 
 export async function getMenuCategory(req, res) {
     try {
@@ -223,6 +250,7 @@ export async function getMenuCategory(req, res) {
 export async function restaurantUpdate(req, res) {
     try {
         const meta = JSON.parse(req.body.meta)
+        console.log(meta);
         const token = meta.token;
         const verified = jwt.verify(token, JWT_SECRET);
 
@@ -274,6 +302,16 @@ export async function restaurantUpdate(req, res) {
             ]
         )
 
+        const typeIds = meta.types.map(t => t.id);
+
+        await pool.query(
+            `DELETE FROM restaurant_with_type
+            WHERE restaurant_id = $1
+            AND type_id <> ALL($2::uuid[])`,
+            [verified.id, typeIds]
+        );
+
+
         for (const t of meta.types) {
             await pool.query(
                 `INSERT INTO restaurant_with_type(restaurant_id,type_id)
@@ -306,12 +344,12 @@ export async function restaurantUpdate(req, res) {
         await pool.query(`Delete FROM delivery where restaurant_id = $1`, [verified.id]);
 
         for (const d of meta.delivery) {
-            if(d.name){
+            if (d.name) {
                 await pool.query(`INSERT INTO delivery(restaurant_id,name,link) VALUES ($1,$2,$3)`,
-                [verified.id, d.name, d.link]
-            )
+                    [verified.id, d.name, d.link]
+                )
             }
-            
+
         };
         const updatedMenuIds = [];
 
@@ -405,16 +443,20 @@ export async function restaurantUpdate(req, res) {
     }
 }
 
-export async function updateEmergency(req,res){
-    try{
+export async function updateEmergency(req, res) {
+    try {
 
         const newStatus = req.body.emergency;
         const verified = jwt.verify(req.body.token, JWT_SECRET);
-        const result = await pool.query(`Update restaurants_info set emergency = $1 where id = $2`,[newStatus,verified.id])
-        console.log(verified+'update emergency to: '+newStatus);
-        res.status(200).json({message:'success'});
-    }catch(err){
+        const result = await pool.query(`Update restaurants_info set emergency = $1 where id = $2`, [newStatus, verified.id])
+        console.log(verified + 'update emergency to: ' + newStatus);
+        res.status(200).json({
+            message: 'success'
+        });
+    } catch (err) {
         console.log(err);
-        res.status(500).send({message:'Internal error'});
+        res.status(500).send({
+            message: 'Internal error'
+        });
     }
 }

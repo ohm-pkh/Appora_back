@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
-import pool from "./db.js"; // your PostgreSQL pool
+import pool from "./config/db.js"; // your PostgreSQL pool
 import dotenv from "dotenv";
 dotenv.config();
 
