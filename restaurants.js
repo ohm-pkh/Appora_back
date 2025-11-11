@@ -14,33 +14,36 @@ export default async function getRestaurants(req, res) {
     console.log('day', day, 'time', formattedTime);
     try {
         const result = await pool.query(`
-            SELECT distinct r.*,max(m.price) as max_price,min(m.price) as min_price ,(jsonb_agg(distinct jsonb_build_object('id', t.id, 'name', t.name) )) as types, jsonb_agg(distinct jsonb_build_object('id', c.id, 'name', c.name) ) as categories
-            from restaurants_info r 
-            left join open_close_hours oc on r.id = oc.restaurant_id 
-            left join menus m on m.restaurant_id = r. id 
-            left join restaurant_with_type rt on rt.restaurant_id = r.id
-            left join restaurant_types t on t.id=rt.type_id
-            left join menu_categories mc on m.id=mc.menu_id
-            left join category c on c.id= mc.category_id
-            WHERE oc.open <= $1 
-            AND oc.close >= $1 
-            AND oc.day = $2 
-            AND r.emergency <> true 
-            AND r.status = 'Available'
-            ${search ? `$3 = '' AND (
-                r.name % $3 OR 
-                m.name % $3 OR 
-                t.name % $3 OR 
-                c.name % $3
-            )` : ``}
-            ${ search ? `ORDER BYGREATEST(
+            SELECT DISTINCT r.*,
+                MAX(m.price) AS max_price,
+                MIN(m.price) AS min_price,
+                JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', t.id, 'name', t.name)) AS types,
+                JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', c.id, 'name', c.name)) AS categories
+            FROM restaurants_info r
+            LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
+            LEFT JOIN menus m ON m.restaurant_id = r.id
+            LEFT JOIN restaurant_with_type rt ON rt.restaurant_id = r.id
+            LEFT JOIN restaurant_types t ON t.id = rt.type_id
+            LEFT JOIN menu_categories mc ON m.id = mc.menu_id
+            LEFT JOIN category c ON c.id = mc.category_id
+            WHERE oc.open <= $1
+                AND oc.close >= $1
+                AND oc.day = $2
+                AND r.emergency <> true
+                AND r.status = 'Available'
+            ${search ? `AND (
+                r.name ILIKE '%' || $3 || '%' OR 
+                m.name ILIKE '%' || $3 || '%' OR 
+                t.name ILIKE '%' || $3 || '%' OR 
+                c.name ILIKE '%' || $3 || '%'
+            )` : ''}
+            GROUP BY r.id
+            ${search ? `ORDER BY GREATEST(
                 similarity(r.name, $3),
                 similarity(m.name, $3),
                 similarity(t.name, $3),
                 similarity(c.name, $3)
-            ) DESC
-            ` : ``}
-            group by r.id
+            ) DESC` : ''}
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
         res.status(200).json(result.rows);
