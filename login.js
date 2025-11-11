@@ -207,7 +207,7 @@ export const CheckAuth = async (req, res) => {
     const verified = jwt.verify(token, JWT_SECRET);
     const Result = await pool.query('SELECT role FROM account WHERE id = $1', [verified.id]);
     if (Result.rows.count === 0) {
-      res.status(401).send({
+      return res.status(401).send({
         error: "Invalid information"
       });
     }
@@ -261,6 +261,11 @@ export const Verify = async (req, res) => {
         error: "Invalid verification code"
       });
     }
+
+    if(type !== 'Recovery'){
+      console.log(Rest_data.uid);
+       await pool.query(`INSERT INTO restaurants_info (id) VALUES ($1);`,[Rest_data.uid]);
+    }
     //Update status
     const Verify = await pool.query("UPDATE account SET acc_status = 'Complete' WHERE id = $1", [Rest_data.uid]);
     //Delete Data
@@ -284,6 +289,8 @@ export const Verify = async (req, res) => {
         token: token,
       });
     }
+
+
     res.status(200).json({
       success: true,
       uid: Del_VC.rows[0].uid,

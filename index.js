@@ -5,6 +5,7 @@ import passport from "passport";
 import { Profiler } from "react";
 import session  from "express-session";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import {Login_with_Google} from "./auth.js"
 import {
   Register,
@@ -17,6 +18,8 @@ import {
   CheckAuth,
 } from "./login.js";
 import pool from "./db.js";
+import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUpdate,updateEmergency} from "./restaurantPage.js";
+import upload from "./config/multer.js";
 
 
 dotenv.config();
@@ -24,8 +27,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT;
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  message: "Too many requests from this IP, please try again after 15 minutes",
+});
+
 app.use(cors());//waiting for frontend
 app.use(express.json());
+app.use(limiter);
 // app.use(session({secret: `cat`}));
 // app.use(passport.initialize());
 // app.use(passport.session());
@@ -100,13 +110,18 @@ app.get("/testdb", async (req,res) =>{
 app.post("/Sign_in", Register);
 app.post("/LogIn", Login);
 app.get("/LogIn",CheckAuth);
+app.get("/RestaurantPage",restaurantPageInfo);
+app.patch("/RestaurantPage", upload.any(), restaurantUpdate)
 app.post("/Gauth",Login_with_Google)
 app.post("/Verify", Verify);
 app.get("/Verify",Resend_code);
 //app.post("/ForPass", Forgot_Pass);
 app.get("/ForPass",Check_email)
 app.post("/Reset_pass", Reset_Pass);
-
+app.get("/Type", getType);
+app.get("/Location",getLocationInfo);
+app.get("/Menu",getMenuCategory);
+app.patch("/Emergency",updateEmergency);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
