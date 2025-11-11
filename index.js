@@ -22,7 +22,7 @@ import { restaurantPageInfo,getType,getLocationInfo,getMenuCategory,restaurantUp
 import upload from "./config/multer.js";
 import getRestaurants from "./restaurants.js";
 import { restaurantFullDetain } from "./restaurants.js";
-import { getCart,deleteCart,addCart,getCartRestaurant } from "./Cart.js";
+import { getCart,deleteCart,addCart,getCartRestaurant } from "./cart.js";
 import getTransportTime from "./getTransportTime.js";
 
 
