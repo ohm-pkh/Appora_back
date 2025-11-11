@@ -5,7 +5,7 @@ export default async function getRestaurants(req, res) {
     const now = new Date();
     const search = req.query.search;
     console.log(req.query.search);
-    const days = ["Sun", "Mon", "Tues", "Wed", "Thu", "Fri", "Sat"];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const day = days[now.getDay()];
     const formattedTime = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
     console.log('day', day, 'time', formattedTime);
