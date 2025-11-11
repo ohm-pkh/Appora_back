@@ -32,9 +32,9 @@ const app = express();
 const PORT = process.env.PORT;
 
 const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
+  windowMs: 10 * 60 * 10000,
   max: 100, 
-  message: "Too many requests from this IP, please try again after 15 minutes",
+  message: "Too many requests from this IP, please try again after 10 minutes",
 });
 
 const cartLimiter = rateLimit({
