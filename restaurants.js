@@ -14,37 +14,54 @@ export default async function getRestaurants(req, res) {
     console.log('day', day, 'time', formattedTime);
     try {
         const result = await pool.query(`
-            SELECT DISTINCT r.*,
-                MAX(m.price) AS max_price,
-                MIN(m.price) AS min_price,
-                JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', t.id, 'name', t.name)) AS types,
-                JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', c.id, 'name', c.name)) AS categories
-                ${search ?`, GREATEST(
-                    similarity(r.name, $3),
-                    similarity(m.name, $3),
-                    similarity(t.name, $3),
-                    similarity(c.name, $3) 
-                ) AS score`:''}
-            FROM restaurants_info r
-            LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
-            LEFT JOIN menus m ON m.restaurant_id = r.id
-            LEFT JOIN restaurant_with_type rt ON rt.restaurant_id = r.id
-            LEFT JOIN restaurant_types t ON t.id = rt.type_id
-            LEFT JOIN menu_categories mc ON m.id = mc.menu_id
-            LEFT JOIN category c ON c.id = mc.category_id
-            WHERE oc.open <= $1
-                AND oc.close >= $1
-                AND oc.day = $2
-                AND r.emergency <> true
-                AND r.status = 'Available'
-            ${search ? `AND (
-                r.name ILIKE '%' || $3 || '%' OR 
-                m.name ILIKE '%' || $3 || '%' OR 
-                t.name ILIKE '%' || $3 || '%' OR 
-                c.name ILIKE '%' || $3 || '%'
-            )` : ''}
-            GROUP BY r.id,m.name,t.name,c.name
-            ${search ? `ORDER BY score DESC` : ''}
+            WITH base AS (
+    SELECT
+        r.id,
+        r.*, 
+        m.price,
+        t.id   AS type_id,
+        t.name AS type_name,
+        c.id   AS category_id,
+        c.name AS category_name,
+        ${search ? `
+        GREATEST(
+            similarity(r.name, $3),
+            similarity(m.name, $3),
+            similarity(t.name, $3),
+            similarity(c.name, $3)
+        ) AS score
+        ` : `0 AS score`}
+    FROM restaurants_info r
+    LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
+    LEFT JOIN menus m ON m.restaurant_id = r.id
+    LEFT JOIN restaurant_with_type rt ON rt.restaurant_id = r.id
+    LEFT JOIN restaurant_types t ON t.id = rt.type_id
+    LEFT JOIN menu_categories mc ON m.id = mc.menu_id
+    LEFT JOIN category c ON c.id = mc.category_id
+    WHERE oc.open <= $1
+      AND oc.close >= $1
+      AND oc.day = $2
+      AND r.emergency <> true
+      AND r.status = 'Available'
+      ${search ? `
+      AND (
+          r.name ILIKE '%' || $3 || '%' OR
+          m.name ILIKE '%' || $3 || '%' OR
+          t.name ILIKE '%' || $3 || '%' OR
+          c.name ILIKE '%' || $3 || '%'
+      )` : ''}
+)
+
+SELECT
+    b.id,
+    MAX(b.price) AS max_price,
+    MIN(b.price) AS min_price,
+    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', b.type_id, 'name', b.type_name)) AS types,
+    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', b.category_id, 'name', b.category_name)) AS categories,
+    ${search ? `MAX(b.score) AS score` : ''}
+FROM base b
+GROUP BY b.id
+${search ? `ORDER BY score DESC` : ''};
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
         res.status(200).json(result.rows);
