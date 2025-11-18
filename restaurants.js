@@ -43,7 +43,7 @@ export default async function getRestaurants(req, res) {
                 t.name ILIKE '%' || $3 || '%' OR 
                 c.name ILIKE '%' || $3 || '%'
             )` : ''}
-            GROUP BY r.id
+            GROUP BY r.id,m.name,t.name,c.name
             ${search ? `ORDER BY score DESC` : ''}
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
