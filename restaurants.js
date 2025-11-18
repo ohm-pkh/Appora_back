@@ -19,6 +19,12 @@ export default async function getRestaurants(req, res) {
                 MIN(m.price) AS min_price,
                 JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', t.id, 'name', t.name)) AS types,
                 JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', c.id, 'name', c.name)) AS categories
+                ${search ?`, GREATEST(
+                    similarity(r.name, $3),
+                    similarity(m.name, $3),
+                    similarity(t.name, $3),
+                    similarity(c.name, $3) 
+                ) AS score`:''}
             FROM restaurants_info r
             LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
             LEFT JOIN menus m ON m.restaurant_id = r.id
@@ -38,12 +44,7 @@ export default async function getRestaurants(req, res) {
                 c.name ILIKE '%' || $3 || '%'
             )` : ''}
             GROUP BY r.id
-            ${search ? `ORDER BY GREATEST(
-                similarity(r.name, $3),
-                similarity(m.name, $3),
-                similarity(t.name, $3),
-                similarity(c.name, $3)
-            ) DESC` : ''}
+            ${search ? `ORDER BY score DESC` : ''}
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
         res.status(200).json(result.rows);
