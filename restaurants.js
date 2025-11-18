@@ -17,11 +17,10 @@ export default async function getRestaurants(req, res) {
             WITH base AS (
     SELECT
         r.id,
-        r.*, 
         m.price,
-        t.id   AS type_id,
+        t.id AS type_id,
         t.name AS type_name,
-        c.id   AS category_id,
+        c.id AS category_id,
         c.name AS category_name,
         ${search ? `
         GREATEST(
@@ -32,11 +31,11 @@ export default async function getRestaurants(req, res) {
         ) AS score
         ` : `0 AS score`}
     FROM restaurants_info r
-    LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
+    LEFT JOIN open_close_hours oc ON oc.restaurant_id = r.id
     LEFT JOIN menus m ON m.restaurant_id = r.id
     LEFT JOIN restaurant_with_type rt ON rt.restaurant_id = r.id
     LEFT JOIN restaurant_types t ON t.id = rt.type_id
-    LEFT JOIN menu_categories mc ON m.id = mc.menu_id
+    LEFT JOIN menu_categories mc ON mc.menu_id = m.id
     LEFT JOIN category c ON c.id = mc.category_id
     WHERE oc.open <= $1
       AND oc.close >= $1
@@ -45,22 +44,22 @@ export default async function getRestaurants(req, res) {
       AND r.status = 'Available'
       ${search ? `
       AND (
-          r.name ILIKE '%' || $3 || '%' OR
-          m.name ILIKE '%' || $3 || '%' OR
-          t.name ILIKE '%' || $3 || '%' OR
-          c.name ILIKE '%' || $3 || '%'
+        r.name ILIKE '%' || $3 || '%' OR
+        m.name ILIKE '%' || $3 || '%' OR
+        t.name ILIKE '%' || $3 || '%' OR
+        c.name ILIKE '%' || $3 || '%'
       )` : ''}
 )
 
 SELECT
-    b.id,
-    MAX(b.price) AS max_price,
-    MIN(b.price) AS min_price,
-    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', b.type_id, 'name', b.type_name)) AS types,
-    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', b.category_id, 'name', b.category_name)) AS categories,
-    ${search ? `MAX(b.score) AS score` : ''}
-FROM base b
-GROUP BY b.id
+    id,
+    MAX(price) AS max_price,
+    MIN(price) AS min_price,
+    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', type_id, 'name', type_name)) AS types,
+    JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', category_id, 'name', category_name)) AS categories,
+    MAX(score) AS score
+FROM base
+GROUP BY id
 ${search ? `ORDER BY score DESC` : ''};
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
         console.log(result.rows);
