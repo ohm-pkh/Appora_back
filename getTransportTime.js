@@ -7,7 +7,6 @@ const PROFILE = "foot-walking";
 
 async function getORSDuration(start, end) {
   try {
-    console.log('start',start,'end',end)
     const response = await axios.get(`https://api.openrouteservice.org/v2/directions/${PROFILE}?api_key=${ORS_API_KEY}&start=${start.lon},${start.lat}&end=${end.lon},${end.lat}`);
     return response.data.features[0].properties.summary.duration;
   } catch (err) {
@@ -33,7 +32,6 @@ export default async function getTransportTime(req, res) {
             currentLocation,
             cart
         } = req.body;
-        console.log('current',currentLocation,"cart",cart)
         if (!currentLocation || !cart) {
             return res.status(400).json({
                 error: "Missing currentLocation or cart"
@@ -51,7 +49,6 @@ export default async function getTransportTime(req, res) {
 
         // Fetch lat/lon from DB for missing items
         const updatedItems = await Promise.all(itemsToUpdate.map(async (item) => {
-            console.log('item',item);
             const query = "SELECT lat, lon FROM restaurants_info WHERE id = $1";
             const {
                 rows

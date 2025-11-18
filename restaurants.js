@@ -4,14 +4,12 @@ import timeFormat from "./function/timeFormat.js";
 export default async function getRestaurants(req, res) {
     const now = new Date();
     const search = req.query.search;
-    console.log(req.query.search);
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const nowBKK = new Date(now.toLocaleString('en-US', {
         timeZone: 'Asia/Bangkok'
     }));
     const day = days[nowBKK.getDay()];
     const formattedTime = `${nowBKK.getHours()}:${nowBKK.getMinutes()}:${nowBKK.getSeconds()}`;
-    console.log('day', day, 'time', formattedTime);
     try {
         const result = await pool.query(`
             SELECT DISTINCT r.*,
@@ -19,6 +17,8 @@ export default async function getRestaurants(req, res) {
                 MIN(m.price) AS min_price,
                 JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', t.id, 'name', t.name)) AS types,
                 JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('id', c.id, 'name', c.name)) AS categories
+                ${search?`,
+                MAX(GREATEST(similarity(r.name, $3),similarity(m.name, $3),similarity(t.name, $3),similarity(c.name, $3))) AS score`:''}
             FROM restaurants_info r
             LEFT JOIN open_close_hours oc ON r.id = oc.restaurant_id
             LEFT JOIN menus m ON m.restaurant_id = r.id
@@ -31,20 +31,9 @@ export default async function getRestaurants(req, res) {
                 AND oc.day = $2
                 AND r.emergency <> true
                 AND r.status = 'Available'
-            ${search ? `AND (
-                r.name ILIKE '%' || $3 || '%' OR 
-                m.name ILIKE '%' || $3 || '%' OR 
-                t.name ILIKE '%' || $3 || '%' OR 
-                c.name ILIKE '%' || $3 || '%'
-            )` : ''}
             GROUP BY r.id
-            ${search ? `ORDER BY GREATEST(
-                similarity(r.name, $3),
-                similarity(m.name, $3),
-                similarity(t.name, $3),
-                similarity(c.name, $3)) DESC` : ''}
+            ${search ? `ORDER BY score DESC` : ''}
         `, search ? [formattedTime, day, search] : [formattedTime, day]);
-        console.log(result.rows);
         res.status(200).json(result.rows);
     } catch (err) {
         console.log(err);

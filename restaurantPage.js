@@ -177,7 +177,6 @@ export async function getLocationInfo(req, res) {
             lon
         } = req.query
         const location = await getLoc(lat, lon);
-        console.log(location);
         res.status(200).json({
             location
         });
@@ -193,8 +192,6 @@ export async function getType(req, res) {
     try {
         const types = req.query.types; // "uuid1,uuid2,..."
         const typeArray = types ? types.split(',') : [];
-
-        console.log('typeArray:', typeArray);
 
         const result = await pool.query(
             `SELECT name,id FROM restaurant_types ${typeArray.length > 0 ? 'WHERE id <> ALL($1::uuid[])' : ''}`,
@@ -250,7 +247,6 @@ export async function getMenuCategory(req, res) {
 export async function restaurantUpdate(req, res) {
     try {
         const meta = JSON.parse(req.body.meta)
-        console.log(meta);
         const token = meta.token;
         const verified = jwt.verify(token, JWT_SECRET);
 

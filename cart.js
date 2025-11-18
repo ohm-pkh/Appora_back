@@ -8,7 +8,6 @@ export async function getCart(req,res){
         const token = req.query.token;
         const verified =jwt.verify(token, JWT_SECRET);
         const result = await pool.query(`Select restaurant_id from cart where user_id = $1`,[verified.id]);
-        console.log(result.rows);
         res.status(200).json({cartItems:result.rows});
     }catch(e){
         console.log(e);
@@ -54,7 +53,6 @@ export async function getCartRestaurant(req,res){
             left join restaurant_types t on t.id=rt.type_id
             where user_id = $1 
             group by c.restaurant_id,r.id`,[verified.id]);
-        console.log(result.rows);
         res.status(200).json({cartItems:result.rows});
     }catch(e){
         console.log(e);

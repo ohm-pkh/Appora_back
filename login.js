@@ -263,7 +263,6 @@ export const Verify = async (req, res) => {
     }
 
     if(type !== 'Recovery'){
-      console.log(Rest_data.uid);
        await pool.query(`INSERT INTO restaurants_info (id) VALUES ($1);`,[Rest_data.uid]);
     }
     //Update status
@@ -406,7 +405,6 @@ export const Resend_code = async (req, res) => {
     const V_Code = generateRandom6DigitNumber();
     //Hashed the verification code
     const VC_Hashed = await Hash_Password(V_Code.toString());
-    console.log(email);
     const Vid = await pool.query(
       `INSERT INTO validation_code (uid, code, type)
    VALUES ((SELECT id from account where email = $1), $2, $3)
@@ -451,7 +449,6 @@ export const Check_email = async (req, res) => {
   try {
     const email = req.query.email;
     const Loweremail = email.toLowerCase();
-    console.log(email);
     const Result = await pool.query(`SELECT acc_status FROM account WHERE email = $1`, [Loweremail]);
     const row = Result.rows[0];
     if (row.acc_status !== "Complete") {
