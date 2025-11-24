@@ -45,7 +45,7 @@ export async function getCartRestaurant(req,res){
         const token = req.query.token;
         const verified =jwt.verify(token, JWT_SECRET);
         const result = await pool.query(`
-            Select c.restaurant_id as id,r.name,r.photo_path,r.lat,r.lon,max(m.price) as max_price,min(m.price) as min_price ,(jsonb_agg(distinct jsonb_build_object('id', t.id, 'name', t.name) )) as types
+            Select c.restaurant_id as id,r.name,r.description,r.photo_path,r.lat,r.lon,max(m.price) as max_price,min(m.price) as min_price ,(jsonb_agg(distinct jsonb_build_object('id', t.id, 'name', t.name) )) as types
             from cart c 
             left join restaurants_info r on r.id=c.restaurant_id 
             left join menus m on m.restaurant_id = r.id 
